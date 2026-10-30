@@ -1,12 +1,5 @@
-* 
-!*/ 
-!.gitignore 
-!Answers.md 
-!CustomerFileStore.cs 
-!InvoiceExport.csproj 
-!InvoiceExportService.cs 
-!InvoiceFileWriter.cs 
-!Models.cs 
-!OrderDatabase.cs 
-!Program.cs 
-!README.md 
+.vs/ 
+[Bb]in/ 
+[Oo]bj/ 
+*.user 
+*.suo 
