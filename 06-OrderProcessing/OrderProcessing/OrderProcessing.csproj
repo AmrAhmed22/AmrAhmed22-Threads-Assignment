@@ -8,13 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Phase1\" />
     <Folder Include="Phase2\" />
     <Folder Include="Phase3\" />
     <Folder Include="Phase4\" />
-    <Folder Include="Shared\Exceptions\" />
-    <Folder Include="Shared\Logging\" />
-    <Folder Include="Shared\Models\" />
   </ItemGroup>
 
 </Project>
