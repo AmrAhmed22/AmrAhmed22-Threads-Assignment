@@ -17,6 +17,10 @@ namespace OrderProcessing.Shared.Storage
         public const string EmailRetry = "email_retry.json";
 
         public static readonly string Folder = Path.Combine(AppContext.BaseDirectory, "Data");
+
+        public static readonly string InvoicesFolder = Path.Combine(Folder, "invoices");
+        public static readonly string ReportsFolder = Path.Combine(Folder, "reports");
+
     }
 
 

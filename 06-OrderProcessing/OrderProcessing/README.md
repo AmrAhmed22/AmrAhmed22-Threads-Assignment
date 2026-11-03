@@ -55,3 +55,52 @@ Thread.Sleep(): the thread will be blocked and does nothing .
 
 5. Sync blocks the thread during the disk read. 
 async doesn't block the thread for the read
+
+Phase 2 :
+
+8.4:
+
+### Phase 2 compared with Phase 1
+
+Phase 1 handled the 20 orders one after another: <53> s
+Phase 2 starts all validated orders together: <9> s
+The waits now overlap, so the total is close to the slowest order, not the sum of all orders.
+
+
+
+8.5:
+
+### Why Task.Run fits the invoice but not the database calls
+
+The invoice is CPU bound: a core calculates the whole time, so `Task.Run` moves that work to a pool thread and the caller is not blocked.
+
+The database calls are I/O waits, and `await` already frees the thread while waiting, so `Task.Run` would only occupy a pool thread that do nothing.
+
+
+### Phase 2 questions
+
+1. **Starting vs awaiting a task:** Starting a task begins the work and gives me the Task object now. Awaiting it waits for the result without blocking the thread 
+
+2. **Does every Task create a thread? Does Task.Delay use a thread?**No, a Task does not always create a new thread it is simply a promise of work it reuse existing threads from the ThreadPool. `Task.Delay` uses a timer, so no thread is held while it waits.
+
+3. **.Result or .Wait() instead of await:** The calling thread is blocked until the task finishes. It is dangerous because it wastes a thread
+
+public void BlockingTaskDemo()
+{
+     Task<string> dataTask = Task.Run(() => "Data Loaded");
+
+    string result = dataTask.Result; //thread will blocked here 
+
+    Console.WriteLine(result);
+}
+
+4. **Exception in a task that is never awaited:** It stays inside the task and nobody sees it. The program continues as if nothing happened, so the error is lost.
+
+5. **Task.Run:** Use it for CPU heavy work like big loop, so it runs on a pool thread. Avoid it for I/O waits like database calls, because `await` frees the thread.
+
+6. **Task vs Task<T>:** Task represents an async operation that does not return a value (void). Task<T> represents an async operation that returns a value of type T .
+
+7. **Why can a lock block not contain await:** A lock is owned by one thread. After an `await` the code may continue on a different thread, which could not release the lock. The compiler forbids it.
+
+8. **Why the unprotected reservation oversold:** Both orders read stock 1 before either wrote, so both passed the check and both wrote 0. I prevented it with `UpdateAsync`, which checks and subtracts while holding the file's gate.
+

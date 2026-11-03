@@ -1,5 +1,5 @@
-﻿using OrderProcessing.Phase1;
+﻿using OrderProcessing.Phase2;
 using OrderProcessing.Shared;
 
-using var run = new RunCancellation();     
-await Phase1Runner.RunAsync(run.Token);
+using var run = new RunCancellation();
+await Phase2Runner.RunAsync(run.Token);
