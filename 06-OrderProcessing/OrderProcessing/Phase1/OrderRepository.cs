@@ -1,4 +1,5 @@
-﻿using OrderProcessing.Shared.Logging;
+﻿using OrderProcessing.Shared.Exceptions;
+using OrderProcessing.Shared.Logging;
 using OrderProcessing.Shared.Models;
 using OrderProcessing.Shared.Storage;
 using System;
@@ -10,11 +11,18 @@ namespace OrderProcessing.Phase1
     public sealed class OrderRepository
     {
         readonly JsonFileStore _store;
+        readonly HashSet<int> _failSaveForOrderIds;
 
-        public OrderRepository(JsonFileStore store) => _store = store;
-
-        public async Task SaveAsync(Order order, CancellationToken ct)
+        public OrderRepository(JsonFileStore store, IEnumerable<int>? failSaveForOrderIds = null)
         {
+            _store = store;
+            _failSaveForOrderIds = (failSaveForOrderIds ?? Array.Empty<int>()).ToHashSet();
+        }
+
+        public async Task SaveAsync(Order order, CancellationToken ct = default)
+        {
+            bool failCommit = order.Status == OrderStatus.Completed && _failSaveForOrderIds.Contains(order.Id);
+
             Log.Info("OrderRepository -> Opening connection...");
             await Task.Delay(200, ct);
 
@@ -24,17 +32,23 @@ namespace OrderProcessing.Phase1
             Log.Info($"OrderRepository -> Saving Order #{order.Id} ({order.Status})...");
             await Task.Delay(400, ct);
 
-            await _store.ModifyAsync<Order>(DataFiles.Orders, list =>
+            if (!failCommit)
             {
-                int index = list.FindIndex(o => o.Id == order.Id);
-                if (index >= 0)
-                    list[index] = order;
-                else
-                    list.Add(order);
-            }, ct);
+                await _store.ModifyAsync<Order>(DataFiles.Orders, list =>
+                {
+                    int index = list.FindIndex(o => o.Id == order.Id);
+                    if (index >= 0)
+                        list[index] = order;
+                    else
+                        list.Add(order);
+                }, ct);
+            }
 
             Log.Info("OrderRepository -> Committing...");
             await Task.Delay(200, ct);
+
+            if (failCommit)
+                throw new DatabaseWriteException("Connection lost during commit");
 
             Log.Info($"OrderRepository -> Order #{order.Id} saved");
         }

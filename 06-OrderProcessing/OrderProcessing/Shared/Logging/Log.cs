@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 
@@ -10,6 +11,11 @@ namespace OrderProcessing.Shared.Logging
 
         static readonly Object Sync = new();
 
+        static readonly ConcurrentDictionary<int, byte> Threads = new();
+        public static int DistinctThreads => Threads.Count;
+        public static void ResetThreads() => Threads.Clear();
+
+
         public static void Info(string message) => Write(message, color: null);
 
         public static void Success(string message) => Write(message, ConsoleColor.Green);
@@ -20,6 +26,7 @@ namespace OrderProcessing.Shared.Logging
         {
             string time = DateTime.Now.ToString("HH:mm:ss.fff");
             int threadId = Environment.CurrentManagedThreadId;
+            Threads[threadId] = 0;
             string line = $"[{time}] [Thread {threadId}] {message}";
 
             lock (Sync)

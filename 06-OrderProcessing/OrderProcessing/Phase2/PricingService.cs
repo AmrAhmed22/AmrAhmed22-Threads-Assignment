@@ -58,10 +58,15 @@ namespace OrderProcessing.Phase2
 
             int couponPercent = 0;
             if (order.CouponCode is not null)
-            {
-                Coupon? coupon = await _coupons.GetByCodeAsync(order.CouponCode, ct);
-                couponPercent = coupon?.DiscountPercent ?? 0;
-            }
+        {
+            Coupon? coupon = await _coupons.GetByCodeAsync(order.CouponCode, ct);
+            if (coupon is null)
+                throw new InvalidCouponException($"Coupon '{order.CouponCode}' does not exist");
+            if (coupon.ExpiryDate < DateTime.Today)
+                throw new InvalidCouponException($"Coupon '{order.CouponCode}' has expired");
+
+            couponPercent = coupon.DiscountPercent;
+        }
 
             int percent = PricingRules.DiscountPercent(customer.LoyaltyTier, couponPercent);
             decimal discount = PricingRules.Discount(order.SubTotal, percent);
@@ -97,5 +102,22 @@ namespace OrderProcessing.Phase2
             return shipping;
 
         }
+
+        public async Task<decimal> CalculateTotalAsync(Order order, CancellationToken ct)
+        {
+            order.SubTotal = await CalculateSubTotalAsync(order, ct);
+
+            Task<decimal> discountTask = GetDiscountAsync(order, ct);
+            Task<decimal> shippingTask = CalculateShippingCostAsync(order, ct);
+
+            order.Discount = await discountTask;
+            order.ShippingCost = await shippingTask;
+
+            order.TotalAmount = PricingRules.Total(order.SubTotal, order.Discount, order.ShippingCost);
+            return order.TotalAmount;
+        }
+
+
+
     }
 }

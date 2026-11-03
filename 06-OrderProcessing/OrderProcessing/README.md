@@ -104,3 +104,48 @@ public void BlockingTaskDemo()
 
 8. **Why the unprotected reservation oversold:** Both orders read stock 1 before either wrote, so both passed the check and both wrote 0. I prevented it with `UpdateAsync`, which checks and subtracts while holding the file's gate.
 
+
+
+Phase 3 :
+
+| Version | Time | Threads | Pool | Result |
+|---|---|---|---|---|
+| Sync (10 threads) | 11.3s | 10 | 4 | 8 Completed, 2 Rejected |
+| Async (10 tasks) | 11.1s | 7 | 7 | 8 Completed, 2 Rejected |
+
+
+### Phase 3: sync vs async
+
+1. **Does async make one order's workflow faster?** No. One order still run the same steps and waits, so it takes about the same time. Async only helps when many orders run together.
+2. **Why does async scale better for many orders?** A waiting order gives its thread back, so a few pool threads can run many orders. The sync version needs one blocked thread per order.
+3. **What happens to the sync version with 1,000 orders?** It needs 1,000 threads, each reserving about 1 MB of stack and mostly sitting idle. Memory still growing, and the app becomes slow or runs out of resources.
+4. **Why is async essential for apps that call databases, files and APIs?** bec most of their time is waiting for I/O. Async uses that waiting time for other work, instead of holding the thread.
+
+
+
+### Fire-and-forget investigation
+
+1. **The problem:** no await for the email task. `ProcessOrderAsync` prints "Order processing finished" while the email is still being sent, and no one will know if it succeeded or not.
+
+2. **Method returns early / console exits:**
+When the method returns: The caller assumes the entire process is complete, even though the email is still sending in the background.
+When the app exits: The background email task is killed instantly. The email will not be sent.
+
+3. **Exception:** 
+The app will not crash, and a standard try/catch block will not catch the error. we will simply never know that the email failed.
+
+4. **Fix:** `await _emailService.SendConfirmationAsync(order, customer, ct)`
+Now the method waits for the email, the exception reaches the caller, and the method only finishes when the email is done.
+
+**When await is necessary:** 
+when the result, the success or the failure matters, or the work must finish before the program ends.
+
+**When fire-and-forget is acceptable (if ever):** 
+it's only acceptable for non critical tasks like background logging where you do not care when the task finishes or if it fails.
+
+**Why `async void` is dangerous:** 
+because you cannot await it to know when it finishes, and any unhandled errors inside it will crash the entire application.
+
+**Why it is acceptable for event handlers:**
+ event handler signatures return `void`, so `async void` is the only way to use `await` there. There is no caller to await it, and the handler built to handle the exceptions safely.
+ 

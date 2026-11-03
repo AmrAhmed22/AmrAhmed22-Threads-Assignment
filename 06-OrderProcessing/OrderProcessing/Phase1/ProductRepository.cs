@@ -51,9 +51,20 @@ namespace OrderProcessing.Phase1
                 product.StockQuantity -= qty;
                 return true;
             }, ct);
-
             Log.Info("ProductRepository -> Committing...");
-            await Task.Delay(200, ct);
+            try
+            {
+                await Task.Delay(200, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                if (reserved)
+                    await _store.ModifyAsync<Product>(DataFiles.Products,
+                        list => list.First(p => p.Id == productId).StockQuantity += qty,
+                        CancellationToken.None);
+                throw;
+            }
+
 
             Log.Info(reserved
                 ? $"ProductRepository -> Reserved {qty} x Product #{productId}"
