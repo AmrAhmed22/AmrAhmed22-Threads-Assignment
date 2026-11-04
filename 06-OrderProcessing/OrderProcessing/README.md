@@ -149,3 +149,69 @@ because you cannot await it to know when it finishes, and any unhandled errors i
 **Why it is acceptable for event handlers:**
  event handler signatures return `void`, so `async void` is the only way to use `await` there. There is no caller to await it, and the handler built to handle the exceptions safely.
  
+
+
+ ### Phase 4 
+
+10.1:
+
+ ### question 1: Live checkout progress
+Tool: `Task.WhenEach`. Awaiting tasks normally forces you to wait in the order they started, even if later tasks finish first. `Task.WhenEach` fixes this by giving you each task the exact moment it completes, automatically keeping track of the unfinished ones for you.
+
+
+10.2:
+
+### question 1: Customer dashboard
+
+Tool: `Task.WhenAll`. The four loads are independent, so I start all of them and wait once. If I awaited them one by one the time would be the sum of the four loads but with `WhenAll` it is about the slowest load time (<1> s).
+
+### question 2: getting every exception
+
+I keep the task returned by `Task.WhenAll` and read its `Exception` property, which is an `AggregateException` holding every failure. A plain `await` on that task rethrows only the first exception, so the second failure would be lost. For customer #99 I got both: "Customer #99 not found" and "Payments store timeout".
+
+
+10.3:
+
+
+### question 1: Fastest shipping quote
+
+Tool: `Task.WhenEach` with a linked `CancellationTokenSource` that has `CancelAfter(1.2 s)`. 
+`Task.WhenEach` with a 1.2-second timer lets you grab the fastest quote instantly instead of being forced to wait for everyone in order
+
+### question 3: carriers that are never cancelled
+
+Canceling the slower tasks saves system resources by instantly stopping useless background work and preventing hidden errors from growing.
+
+
+
+
+10.4:
+
+### question 1: 
+
+- 10.4 A (fraud scoring): Parallel.ForEach uses all available computer cores at once. The work requires heavy calculating, so using multiple cores speeds it up. A normal loop only uses one core at a time.
+
+- 10.4 B (email re-send): Parallel.ForEachAsync limits the work to 4 emails at a time. Doing them one by one is too slow, but doing all 30 at once breaks the limit.
+
+### question 4: cores
+
+10.4 A gets faster with more cores because every core does real calculating, so more cores means more scores at the same time.
+
+10.4 B is just waiting on the email server, which does not require calculating. More cores will not speed up waiting.
+
+### question 5: parallel vs concurrent async
+
+Parallel work (10.4 A) means several cores execute code at the same instant, and it speeds up CPU work. Concurrent async work (10.1) means many operations are in progress at once, but they are mostly waiting, so a few threads are enough. It does not need several cores and it speeds up I/O work.
+
+### question 6: a cancelled run
+
+I ran with `cancelAfter = 6000`. The output was: `Run cancelled - 4 orders finished, 16 cancelled.`
+
+- **Orders:** no new order started, and the orders in progress stopped at their next step. Each one was saved as Pending with the reason "Cancelled", never Failed or PaymentFailed.
+
+- **Stock:** the stock the cancelled orders had reserved was given back, and products.json is back to the starting values.
+
+- **Payments:** a payment that was already captured was refunded. A payment still in progress was cancelled and no record was saved.
+
+- **Files:** all JSON files were still valid, because every write goes through a temporary file first.
+

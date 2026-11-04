@@ -1,12 +1,12 @@
 ﻿using OrderProcessing.Phase1;
 using OrderProcessing.Phase2;
 using OrderProcessing.Phase3;
+using OrderProcessing.Phase4;
 using OrderProcessing.Shared;
 
 string mode = "";         
-int? cancelAfter = null;  
+int? cancelAfter = null;
 
-// empty mode: numbered menu
 if (mode == "")
 {
     Console.WriteLine("1) Phase 1 - async data access");
@@ -41,15 +41,15 @@ switch (mode)
         await RunPhaseAsync(Phase3Runner.RunAsync);
         break;
 
-    // case "phase4":
-    //     await RunPhaseAsync(Phase4Runner.RunAsync);
-    //     break;
+    case "phase4":
+        await RunPhaseAsync(Phase4Runner.RunAsync);
+        break;
 
     case "all":
         await RunPhaseAsync(Phase1Runner.RunAsync);
         await RunPhaseAsync(Phase2Runner.RunAsync);
         await RunPhaseAsync(Phase3Runner.RunAsync);
-        // await RunPhaseAsync(Phase4Runner.RunAsync);
+        await RunPhaseAsync(Phase4Runner.RunAsync);
         break;
 
     default:
@@ -57,7 +57,6 @@ switch (mode)
         break;
 }
 
-// each phase run owns its own cancellation source
 async Task RunPhaseAsync(Func<CancellationToken, Task> phase)
 {
     using var run = new RunCancellation(cancelAfter);
